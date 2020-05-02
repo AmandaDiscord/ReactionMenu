@@ -1,0 +1,15 @@
+{
+  "name": "@amanda/reactionmenu",
+  "version": "1.0.0",
+  "description": "A reaction handler for Discord.js to easily make menus",
+  "main": "index.js",
+  "types": "./typings/index.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "cloudrac3r",
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^12.x"
+  }
+}
