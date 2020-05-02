@@ -37,6 +37,7 @@ export interface ReactionMenuAction {
 	public ignore?: string;
 	public remove?: RemoveType;
 	public actionType?: string;
+	public actionData?: any;
 };
 
 export interface ReactionMenuActionReply {
