@@ -82,10 +82,18 @@ class ReactionMenu {
 			break;
 		}
 	}
-	react() {
+	/**
+	 * Returns 0 on fail and 1 on success.
+	 */
+	async react() {
 		for (const a of this.actions) {
-			this.message.react(a.emoji).catch(() => {});
+			try {
+				await this.message.react(a.emoji);
+			} catch (e) {
+				return 0
+			}
 		}
+		return 1;
 	}
 	/**
 	 * Remove the menu from storage, and optionally delete its reactions.
@@ -110,12 +118,17 @@ class ReactionMenu {
 	 * For each action, remove the client's reaction.
 	 * @private
 	 */
-	_removeEach() {
-		this.actions.forEach(a => {
+	async _removeEach() {
+		for(const a of this.actions) {
 			for (const user of a.allowedUsers) {
-				removeReaction(this.client, this.message.channel.id, this.message.id, a.emoji, user);
+				try {
+					await removeReaction(this.client, this.message.channel.id, this.message.id, a.emoji, user);
+				} catch (e) {
+					return 0
+				}
 			}
-		});
+		}
+		return 1
 	}
 }
 
