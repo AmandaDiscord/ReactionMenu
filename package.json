@@ -10,6 +10,6 @@
   "author": "cloudrac3r",
   "license": "ISC",
   "dependencies": {
-    "discord.js": "^12.x"
+    "thunderstorm": "github:AmandaDiscord/ThunderStorm"
   }
 }

@@ -1,12 +1,10 @@
-import Discord = require("discord.js");
+import Discord = require("thunderstorm");
 
 declare class ReactionMenu {
-	constructor(message: Discord.Message, actions: Array<ReactionMenuAction>);
-	constructor(message: Discord.Message, actions: Array<ReactionMenuActionReply>);
-	constructor(message: Discord.Message, actions: Array<ReactionMenuActionEdit>);
-	constructor(message: Discord.Message, actions: Array<ReactionMenuActionJS>);
+	constructor(message: Discord.Message, client: Discord.Client, actions: Array<ReactionMenuAction>);
 
 	public message: Discord.Message;
+	public client: Discord.Client;
 	public actions: Array<ReactionMenuAction>;
 
 	public static menus: Map<string, ReactionMenu>;
@@ -16,7 +14,7 @@ declare class ReactionMenu {
 	/**
 	 * Remove the menu from storage, and optionally delete its reactions.
 	 */
-	public destroy(remove?: boolean): void;
+	public destroy(remove?: boolean, channelType?: "text" | "dm"): void;
 
 	/**
 	 * Call the endpoint to remove all reactions. Fall back to removing individually if this fails.
@@ -30,41 +28,7 @@ declare class ReactionMenu {
 export = ReactionMenu;
 
 export interface ReactionMenuAction {
-	public emoji: Discord.EmojiIdentifierResolvable;
-	public messageReaction?: Discord.MessageReaction;
-	public allowedUsers?: Array<string>;
-	public deniedUsers?: Array<string>;
-	public ignore?: string;
-	public remove?: RemoveType;
-	public actionType?: string;
-	public actionData?: any;
-};
-
-export interface ReactionMenuActionReply {
-	public emoji: Discord.EmojiIdentifierResolvable;
-	public messageReaction?: Discord.MessageReaction;
-	public allowedUsers?: Array<string>;
-	public deniedUsers?: Array<string>;
-	public ignore?: IgnoreType;
-	public remove?: RemoveType;
-	public actionType: "reply";
-	public actionData: string;
-};
-
-export interface ReactionMenuActionEdit {
-	public emoji: Discord.EmojiIdentifierResolvable;
-	public messageReaction?: Discord.MessageReaction;
-	public allowedUsers?: Array<string>;
-	public deniedUsers?: Array<string>;
-	public ignore?: IgnoreType;
-	public remove?: RemoveType;
-	public actionType: "edit";
-	public actionData: string | Discord.MessageEmbed;
-};
-
-export interface ReactionMenuActionJS {
-	public emoji: Discord.EmojiIdentifierResolvable;
-	public messageReaction?: Discord.MessageReaction;
+	public emoji: string;
 	public allowedUsers?: Array<string>;
 	public deniedUsers?: Array<string>;
 	public ignore?: IgnoreType;

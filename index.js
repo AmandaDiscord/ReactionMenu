@@ -1,6 +1,6 @@
 // @ts-check
 
-const Discord = require("discord.js");
+const Discord = require("thunderstorm");
 /**
  * @type {Map<string, ReactionMenu>}
  */
@@ -9,11 +9,14 @@ const reactionMenus = new Map();
 class ReactionMenu {
 	/**
 	 * @param {Discord.Message} message
+	 * @param {Discord.Client} client
 	 * @param {ReactionMenuAction[]} actions
 	 */
-	constructor(message, actions) {
+	constructor(message, client, actions) {
 		this.message = message;
 		this.actions = actions;
+		this.client = client;
+
 		reactionMenus.set(this.message.id, this);
 		this.react();
 	}
@@ -28,82 +31,72 @@ class ReactionMenu {
 	 */
 	static handler(data, channel, user, client) {
 		// Set up vars
-		const emoji = data.emoji
-		const menu = reactionMenus.get(data.message_id)
+		const emoji = data.emoji;
+		const menu = reactionMenus.get(data.message_id);
 		// Quick conditions
-		if (user.id == client.user.id) return
-		if (!menu) return
+		if (user.id == client.user.id) return;
+		if (!menu) return;
 		// We now have a menu
-		const msg = menu.message
-		const action = menu.actions.find(a => fixEmoji(a.emoji) == fixEmoji(emoji))
+		const msg = menu.message;
+		const action = menu.actions.find(a => resolveEmoji(a.emoji, false) == resolveEmoji(emoji, false));
 		// Make sure the emoji is actually an action
-		if (!action) return
+		if (!action) return;
 		// Make sure the user is allowed
 		if ((action.allowedUsers && !action.allowedUsers.includes(user.id)) || (action.deniedUsers && action.deniedUsers.includes(user.id))) {
-			removeUncachedReaction(client, channel.id, data.message_id, data.emoji, user.id)
-			return
+			removeReaction(client, channel.id, data.message_id, data.emoji, user.id);
+			return;
 		}
 		// Actually do stuff
 		switch (action.actionType) {
-		case "reply":
-			msg.channel.send(user.toString() + " " + action.actionData)
-			break
-		case "edit":
-			msg.edit(action.actionData)
-			break
 		case "js":
-			action.actionData(msg, emoji, user)
-			break
+			action.actionData(msg, emoji, user);
+			break;
 		}
 		switch (action.ignore) {
 		case "that":
-			menu.actions.find(a => a.emoji == emoji).actionType = "none"
-			break
+			menu.actions.find(a => a.emoji == resolveEmoji(emoji, false)).actionType = "none";
+			break;
 		case "thatTotal":
-			menu.actions = menu.actions.filter(a => a.emoji != emoji)
-			break
+			menu.actions = menu.actions.filter(a => a.emoji != resolveEmoji(emoji, false));
+			break;
 		case "all":
-			menu.actions.forEach(a => a.actionType = "none")
-			break
+			menu.actions.forEach(a => a.actionType = "none");
+			break;
 		case "total":
-			menu.destroy(true)
-			break
+			menu.destroy(true);
+			break;
 		}
 		switch (action.remove) {
 		case "user":
-			removeUncachedReaction(client, channel.id, data.message_id, data.emoji, user.id)
-			break
+			removeReaction(client, channel.id, data.message_id, data.emoji, user.id);
+			break;
 		case "bot":
-			removeUncachedReaction(client, channel.id, data.message_id, data.emoji)
-			break
+			removeReaction(client, channel.id, data.message_id, data.emoji, client.user.id);
+			break;
 		case "all":
-			msg.reactions.removeAll()
-			break
+			client._snow.channel.deleteAllReactions(channel.id, data.message_id);
+			break;
 		case "message":
-			menu.destroy(true)
-			msg.delete()
-			break
+			menu.destroy(true);
+			msg.delete();
+			break;
 		}
 	}
 	react() {
 		for (const a of this.actions) {
-			const promise = this.message.react(a.emoji);
-			promise.then(reaction => {
-				a.messageReaction = reaction;
-			});
-			// eslint-disable-next-line no-empty-function
-			promise.catch(() => {});
+			this.message.react(a.emoji).catch(() => {});
 		}
 	}
 	/**
 	 * Remove the menu from storage, and optionally delete its reactions.
 	 * @param {boolean} [remove]
+	 * @param {"text" | "dm"} [channelType]
 	 */
-	destroy(remove) {
+	destroy(remove, channelType = "text") {
 		reactionMenus.delete(this.message.id);
 		if (remove) {
-			if (this.message.channel.type == "text") this._removeAll();
-			else if (this.message.channel.type == "dm") this._removeEach();
+			if (channelType === "text") this._removeAll();
+			else if (channelType === "dm") this._removeEach();
 		}
 	}
 	/**
@@ -111,7 +104,7 @@ class ReactionMenu {
 	 * @private
 	 */
 	_removeAll() {
-		this.message.reactions.removeAll().catch(() => this._removeEach());
+		this.client._snow.channel.deleteAllReactions(this.message.channel.id, this.message.id).catch(() => this._removeEach());
 	}
 	/**
 	 * For each action, remove the client's reaction.
@@ -119,47 +112,45 @@ class ReactionMenu {
 	 */
 	_removeEach() {
 		this.actions.forEach(a => {
-			if (!a.messageReaction) return;
-			// eslint-disable-next-line no-empty-function
-			a.messageReaction.users.remove().catch(() => {});
-		})
+			for (const user of a.allowedUsers) {
+				removeReaction(this.client, this.message.channel.id, this.message.id, a.emoji, user);
+			}
+		});
 	}
 }
 
 module.exports = ReactionMenu;
 
 /**
- * Do not ask me in what way this "fixes" an emoji.
- */
-function fixEmoji(emoji) {
-	if (emoji && emoji.name) {
-		if (emoji.id != null) return `${emoji.name}:${emoji.id}`
-		else return emoji.name
-	}
-	return emoji
-}
-
-/**
  * @param {Discord.Client} client
  * @param {string} channelID
  * @param {string} messageID
- * @param {{ id: string, name: string }} emoji
- * @param {string} [userID]
+ * @param {{ id: string, name: string } | string} emoji
+ * @param {string} userID
  */
-function removeUncachedReaction(client, channelID, messageID, emoji, userID) {
-	if (!userID) userID = "@me"
-	let reaction
+function removeReaction(client, channelID, messageID, emoji, userID) {
+	if (!userID) userID = "@me";
+	const reaction = resolveEmoji(emoji, true);
+	const promise = client._snow.channel.deleteReaction(channelID, messageID, reaction, userID);
+	promise.catch(() => {});
+	return promise;
+}
+
+/**
+ * @param {{ id: string, name: string } | string} emoji
+ * @param {boolean} encode
+ */
+function resolveEmoji(emoji, encode) {
+	let e;
+	if (typeof emoji === "string") return emoji
 	if (emoji.id) {
 		// Custom emoji, has name and ID
-		reaction = `${emoji.name}:${emoji.id}`
+		e = `${emoji.name}:${emoji.id}`;
 	} else {
 		// Default emoji, has name only
-		reaction = encodeURIComponent(emoji.name)
+		e = encode ? encodeURIComponent(emoji.name) : emoji.name;
 	}
-	// @ts-ignore: client.api is not documented
-	const promise = client.api.channels(channelID).messages(messageID).reactions(reaction, userID).delete()
-	promise.catch(() => console.error)
-	return promise
+	return e;
 }
 
 /**
@@ -171,8 +162,7 @@ function removeUncachedReaction(client, channelID, messageID, emoji, userID) {
 
 /**
  * @typedef {Object} ReactionMenuAction
- * @property {Discord.EmojiIdentifierResolvable} emoji
- * @property {Discord.MessageReaction} [messageReaction]
+ * @property {string} emoji
  * @property {string[]} [allowedUsers]
  * @property {string[]} [deniedUsers]
  * @property {string} [ignore]
