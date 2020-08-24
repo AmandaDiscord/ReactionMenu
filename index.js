@@ -120,11 +120,13 @@ class ReactionMenu {
 	 */
 	async _removeEach() {
 		for(const a of this.actions) {
-			for (const user of a.allowedUsers) {
-				try {
-					await removeReaction(this.client, this.message.channel.id, this.message.id, a.emoji, user);
-				} catch (e) {
-					return 0
+			if (a.allowedUsers && Array.isArray(a.allowedUsers)) {
+				for (const user of a.allowedUsers) {
+					try {
+						await removeReaction(this.client, this.message.channel.id, this.message.id, a.emoji, user);
+					} catch (e) {
+						return 0
+					}
 				}
 			}
 		}
