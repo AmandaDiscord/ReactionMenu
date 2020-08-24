@@ -33,8 +33,8 @@ export interface ReactionMenuAction {
 	public deniedUsers?: Array<string>;
 	public ignore?: IgnoreType;
 	public remove?: RemoveType;
-	public actionType: "js";
-	public actionData(message?: Discord.Message, emoji?: { id: string; name: string; }, user?: Discord.User): any;
+	public actionType?: "js";
+	public actionData?(message?: Discord.Message, emoji?: { id: string; name: string; }, user?: Discord.User): any;
 };
 
 declare type IgnoreType = "that" | "thatTotal" | "all" | "total";
