@@ -12,13 +12,13 @@ class ReactionMenu {
 	 * @param {Discord.Client} client
 	 * @param {ReactionMenuAction[]} actions
 	 */
-	constructor(message, client, actions) {
+	constructor(message, client, actions, autoReact = true) {
 		this.message = message;
 		this.actions = actions;
 		this.client = client;
 
 		reactionMenus.set(this.message.id, this);
-		this.react();
+		if (autoReact) this.react();
 	}
 	static get menus() {
 		return reactionMenus;
@@ -85,10 +85,11 @@ class ReactionMenu {
 	/**
 	 * Returns 0 on fail and 1 on success.
 	 */
-	async react() {
+	async react(timeout = 1500) {
 		for (const a of this.actions) {
 			try {
 				await this.message.react(a.emoji);
+				await new Promise((res) => setTimeout(() => res(undefined), timeout));
 			} catch (e) {
 				return 0
 			}

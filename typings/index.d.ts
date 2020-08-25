@@ -1,7 +1,7 @@
 import Discord = require("thunderstorm");
 
 declare class ReactionMenu {
-	constructor(message: Discord.Message, client: Discord.Client, actions: Array<ReactionMenuAction>);
+	constructor(message: Discord.Message, client: Discord.Client, actions: Array<ReactionMenuAction>, autoReact?: boolean);
 
 	public message: Discord.Message;
 	public client: Discord.Client;
@@ -10,7 +10,7 @@ declare class ReactionMenu {
 	public static menus: Map<string, ReactionMenu>;
 	public static handler(data: { user_id: string, channel_id: string, message_id: string, emoji: { id: string, name: string }}, channel: Discord.Channel, user: Discord.User, client: Discord.Client): void;
 
-	public react(): void;
+	public react(timeout?: number): void;
 	/**
 	 * Remove the menu from storage, and optionally delete its reactions.
 	 */
