@@ -111,7 +111,9 @@ class ReactionMenu {
 	 */
 	async react() {
 		try {
-			await Promise.all(this.actions.map(a => this.message.react(a.emoji)));
+			for (const a of this.actions) {
+				await this.message.react(a.emoji);
+			}
 		} catch {
 			return 0;
 		}
