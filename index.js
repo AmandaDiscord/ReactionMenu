@@ -30,7 +30,7 @@ class ReactionMenu {
 
 	/**
 	 * @param {ReactionData} data
-	 * @param {Discord.Channel} channel
+	 * @param {Discord.Channel | Discord.PartialChannel} channel
 	 * @param {Discord.User} user
 	 * @param {Discord.Client} client
 	 */
@@ -97,7 +97,7 @@ class ReactionMenu {
 
 	/**
 	 * @param {ReactionData} data
-	 * @param {Discord.Channel} channel
+	 * @param {Discord.Channel | Discord.PartialChannel} channel
 	 * @param {Discord.User} user
 	 * @param {Discord.Client} client
 	 */

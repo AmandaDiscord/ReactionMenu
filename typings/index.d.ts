@@ -9,8 +9,8 @@ declare class ReactionMenu {
 
 	public constructor(message: Discord.Message, client: Discord.Client, actions: Array<ReactionMenuAction>, autoReact?: boolean);
 
-	public static handler(data: ReactionData, channel: Discord.Channel, user: Discord.User, client: Discord.Client): void;
-	public handler(data: ReactionData, channel: Discord.Channel, user: Discord.User, client: Discord.Client): void;
+	public static handler(data: ReactionData, channel: Discord.Channel | Discord.PartialChannel, user: Discord.User, client: Discord.Client): void;
+	public handler(data: ReactionData, channel: Discord.Channel | Discord.PartialChannel, user: Discord.User, client: Discord.Client): void;
 
 	/**
 	 * Call the endpoint to remove all reactions. Fall back to removing individually if this fails.
