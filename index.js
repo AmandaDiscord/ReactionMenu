@@ -20,11 +20,16 @@ class ReactionMenu {
 		reactionMenus.set(this.message.id, this);
 		if (autoReact) this.react();
 	}
+
 	static get menus() {
 		return reactionMenus;
 	}
+	get menus() {
+		return reactionMenus;
+	}
+
 	/**
-	 * @param {{ user_id: string, channel_id: string, message_id: string, emoji: { id: string, name: string }}} data
+	 * @param {ReactionData} data
 	 * @param {Discord.Channel} channel
 	 * @param {Discord.User} user
 	 * @param {Discord.Client} client
@@ -34,11 +39,11 @@ class ReactionMenu {
 		const emoji = data.emoji;
 		const menu = reactionMenus.get(data.message_id);
 		// Quick conditions
-		if (user.id == client.user.id) return;
+		if (user.id === client.user.id) return;
 		if (!menu) return;
 		// We now have a menu
 		const msg = menu.message;
-		const action = menu.actions.find(a => resolveEmoji(a.emoji, false) == resolveEmoji(emoji, false));
+		const action = menu.actions.find(a => resolveEmoji(a.emoji) === resolveEmoji(emoji));
 		// Make sure the emoji is actually an action
 		if (!action) return;
 		// Make sure the user is allowed
@@ -46,18 +51,18 @@ class ReactionMenu {
 			removeReaction(client, channel.id, data.message_id, data.emoji, user.id);
 			return;
 		}
+
 		// Actually do stuff
-		switch (action.actionType) {
-		case "js":
+		if (action.actionType === "js") {
 			action.actionData(msg, emoji, user);
-			break;
 		}
+
 		switch (action.ignore) {
 		case "that":
-			menu.actions.find(a => a.emoji == resolveEmoji(emoji, false)).actionType = "none";
+			menu.actions.find(a => encodeURIComponent(a.emoji) === resolveEmoji(emoji)).actionType = "none";
 			break;
 		case "thatTotal":
-			menu.actions = menu.actions.filter(a => a.emoji != resolveEmoji(emoji, false));
+			menu.actions = menu.actions.filter(a => encodeURIComponent(a.emoji) !== resolveEmoji(emoji));
 			break;
 		case "all":
 			menu.actions.forEach(a => a.actionType = "none");
@@ -65,7 +70,11 @@ class ReactionMenu {
 		case "total":
 			menu.destroy(true);
 			break;
+		default:
+			// Should probably do something, but it's probably undefined so don't throw an error.
+			break;
 		}
+
 		switch (action.remove) {
 		case "user":
 			removeReaction(client, channel.id, data.message_id, data.emoji, user.id);
@@ -80,22 +89,35 @@ class ReactionMenu {
 			menu.destroy(true);
 			msg.delete();
 			break;
+		default:
+			// Should probably do something, but it's probably undefined so don't throw an error.
+			break;
 		}
 	}
+
+	/**
+	 * @param {ReactionData} data
+	 * @param {Discord.Channel} channel
+	 * @param {Discord.User} user
+	 * @param {Discord.Client} client
+	 */
+	handler(data, channel, user, client) {
+		return ReactionMenu.handler(data, channel, user, client);
+	}
+
 	/**
 	 * Returns 0 on fail and 1 on success.
+	 * @returns {Promise<0 | 1>}
 	 */
-	async react(timeout = 1500) {
-		for (const a of this.actions) {
-			try {
-				await this.message.react(a.emoji);
-				await new Promise((res) => setTimeout(() => res(undefined), timeout));
-			} catch (e) {
-				return 0
-			}
+	async react() {
+		try {
+			await Promise.all(this.actions.map(a => this.message.react(a.emoji)));
+		} catch {
+			return 0;
 		}
 		return 1;
 	}
+
 	/**
 	 * Remove the menu from storage, and optionally delete its reactions.
 	 * @param {boolean} [remove]
@@ -104,17 +126,31 @@ class ReactionMenu {
 	destroy(remove, channelType = "text") {
 		reactionMenus.delete(this.message.id);
 		if (remove) {
-			if (channelType === "text") this._removeAll();
-			else if (channelType === "dm") this._removeEach();
+			if (channelType === "dm") this._removeEach();
+			else this._removeAll();
 		}
 	}
+
 	/**
 	 * Call the endpoint to remove all reactions. Fall back to removing individually if this fails.
 	 * @private
+	 * @returns {Promise<0 | 1>}
 	 */
-	_removeAll() {
-		this.client._snow.channel.deleteAllReactions(this.message.channel.id, this.message.id).catch(() => this._removeEach());
+	async _removeAll() {
+		/** @type {0 | 1} */
+		let value = 1
+		try {
+			await this.client._snow.channel.deleteAllReactions(this.message.channel.id, this.message.id);
+		} catch {
+			try {
+				value = await this._removeEach();
+			} catch {
+				value = 0;
+			}
+		}
+		return value;
 	}
+
 	/**
 	 * For each action, remove the client's reaction.
 	 * @private
@@ -126,12 +162,12 @@ class ReactionMenu {
 					try {
 						await removeReaction(this.client, this.message.channel.id, this.message.id, a.emoji, user);
 					} catch (e) {
-						return 0
+						return 0;
 					}
 				}
 			}
 		}
-		return 1
+		return 1;
 	}
 }
 
@@ -146,7 +182,7 @@ module.exports = ReactionMenu;
  */
 function removeReaction(client, channelID, messageID, emoji, userID) {
 	if (!userID) userID = "@me";
-	const reaction = resolveEmoji(emoji, true);
+	const reaction = resolveEmoji(emoji);
 	const promise = client._snow.channel.deleteReaction(channelID, messageID, reaction, userID);
 	promise.catch(() => {});
 	return promise;
@@ -154,17 +190,16 @@ function removeReaction(client, channelID, messageID, emoji, userID) {
 
 /**
  * @param {{ id: string, name: string } | string} emoji
- * @param {boolean} encode
  */
-function resolveEmoji(emoji, encode) {
+function resolveEmoji(emoji) {
 	let e;
-	if (typeof emoji === "string") return emoji
+	if (typeof emoji === "string") return encodeURIComponent(emoji);
 	if (emoji.id) {
 		// Custom emoji, has name and ID
 		e = `${emoji.name}:${emoji.id}`;
 	} else {
 		// Default emoji, has name only
-		e = encode ? encodeURIComponent(emoji.name) : emoji.name;
+		e = encodeURIComponent(emoji.name);
 	}
 	return e;
 }
@@ -181,8 +216,16 @@ function resolveEmoji(emoji, encode) {
  * @property {string} emoji
  * @property {string[]} [allowedUsers]
  * @property {string[]} [deniedUsers]
- * @property {string} [ignore]
- * @property {string} [remove]
- * @property {string} [actionType]
+ * @property {"that" | "thatTotal" | "all" | "total"} [ignore]
+ * @property {"user" | "bot" | "all" | "message"} [remove]
+ * @property {"js" | "none"} [actionType]
  * @property {ReactionMenuActionCallback} [actionData]
+ */
+
+/**
+ * @typedef {Object} ReactionData
+ * @property {string} user_id
+ * @property {string} channel_id
+ * @property {string} message_id
+ * @property {{ id: string, name: string }} emoji
  */

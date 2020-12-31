@@ -1,41 +1,55 @@
 import Discord = require("thunderstorm");
 
 declare class ReactionMenu {
-	constructor(message: Discord.Message, client: Discord.Client, actions: Array<ReactionMenuAction>, autoReact?: boolean);
-
 	public message: Discord.Message;
 	public client: Discord.Client;
 	public actions: Array<ReactionMenuAction>;
-
 	public static menus: Map<string, ReactionMenu>;
-	public static handler(data: { user_id: string, channel_id: string, message_id: string, emoji: { id: string, name: string }}, channel: Discord.Channel, user: Discord.User, client: Discord.Client): void;
+	public menus: Map<string, ReactionMenu>;
 
-	public react(timeout?: number): void;
-	/**
-	 * Remove the menu from storage, and optionally delete its reactions.
-	 */
-	public destroy(remove?: boolean, channelType?: "text" | "dm"): void;
+	public constructor(message: Discord.Message, client: Discord.Client, actions: Array<ReactionMenuAction>, autoReact?: boolean);
+
+	public static handler(data: ReactionData, channel: Discord.Channel, user: Discord.User, client: Discord.Client): void;
+	public handler(data: ReactionData, channel: Discord.Channel, user: Discord.User, client: Discord.Client): void;
 
 	/**
 	 * Call the endpoint to remove all reactions. Fall back to removing individually if this fails.
 	 */
-	private _removeAll(): void;
+	private _removeAll(): Promise<0 | 1>;
 	/**
 	 * For each action, remove the client's reaction.
 	 */
-	private _removeEach(): void;
+	private _removeEach(): Promise<0 | 1>;
+	/**
+	 * Returns 0 on fail and 1 on success.
+	 */
+	public react(): Promise<0 | 1>;
+	/**
+	 * Remove the menu from storage, and optionally delete its reactions.
+	 */
+	public destroy(remove?: boolean, channelType?: "text" | "dm"): void;
 }
 export = ReactionMenu;
 
-export interface ReactionMenuAction {
-	public emoji: string;
-	public allowedUsers?: Array<string>;
-	public deniedUsers?: Array<string>;
-	public ignore?: IgnoreType;
-	public remove?: RemoveType;
-	public actionType?: "js";
-	public actionData?(message?: Discord.Message, emoji?: { id: string; name: string; }, user?: Discord.User): any;
-};
+interface ReactionMenuAction {
+	emoji: string;
+	allowedUsers?: Array<string>;
+	deniedUsers?: Array<string>;
+	ignore?: IgnoreType;
+	remove?: RemoveType;
+	actionType?: "js";
+	actionData?(message?: Discord.Message, emoji?: { id: string; name: string; }, user?: Discord.User): any;
+}
+
+type ReactionData = {
+	user_id: string;
+	channel_id: string;
+	message_id: string;
+	emoji: {
+		id: string;
+		name: string;
+	};
+}
 
 declare type IgnoreType = "that" | "thatTotal" | "all" | "total";
 declare type RemoveType = "user" | "bot" | "all" | "message";
