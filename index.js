@@ -112,19 +112,13 @@ class ReactionMenu {
 	async react() {
 		/** @type {Array<0 | 1>} */
 		const val = [];
-		let attempts = 0;
 		for (const a of this.actions) {
-			async function r() {
-				try {
-					await this.message.react(a.emoji);
-					val.push(1);
-				} catch {
-					if (attempts < 2) r();
-					else val.push(0);
-				}
-				attempts++;
+			try {
+				await this.message.react(a.emoji);
+				val.push(1);
+			} catch {
+				await this.message.react(a.emoji).then(() => val.push(1)).catch(() => val.push(0));
 			}
-			await r();
 		}
 		return val;
 	}
