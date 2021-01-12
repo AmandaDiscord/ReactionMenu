@@ -21,9 +21,9 @@ declare class ReactionMenu {
 	 */
 	private _removeEach(): Promise<0 | 1>;
 	/**
-	 * Returns 0 on fail and 1 on success.
+	 * Returns the results of the reacts. 0 on fail and 1 on success.
 	 */
-	public react(): Promise<0 | 1>;
+	public react(): Promise<Array<0 | 1>>;
 	/**
 	 * Remove the menu from storage, and optionally delete its reactions.
 	 */

@@ -106,18 +106,27 @@ class ReactionMenu {
 	}
 
 	/**
-	 * Returns 0 on fail and 1 on success.
-	 * @returns {Promise<0 | 1>}
+	 * Returns the results of the reacts. 0 on fail and 1 on success.
+	 * @returns {Promise<Array<0 | 1>>}
 	 */
 	async react() {
-		try {
-			for (const a of this.actions) {
-				await this.message.react(a.emoji);
+		/** @type {Array<0 | 1>} */
+		const val = [];
+		let attempts = 0;
+		for (const a of this.actions) {
+			async function r() {
+				try {
+					await this.message.react(a.emoji);
+					val.push(1);
+				} catch {
+					if (attempts < 2) r();
+					else val.push(0);
+				}
+				attempts++;
 			}
-		} catch {
-			return 0;
+			await r();
 		}
-		return 1;
+		return val;
 	}
 
 	/**
