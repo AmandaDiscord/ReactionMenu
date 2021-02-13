@@ -198,7 +198,10 @@ function removeReaction(client, channelID, messageID, emoji, userID) {
  */
 function resolveEmoji(emoji) {
 	let e;
-	if (typeof emoji === "string") return encodeURIComponent(emoji);
+	if (typeof emoji === "string") {
+		if (emoji.includes(":")) return emoji;
+		else return encodeURIComponent(emoji);
+	}
 	if (emoji.id) {
 		// Custom emoji, has name and ID
 		e = `${emoji.name}:${emoji.id}`;
