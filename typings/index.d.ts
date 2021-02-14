@@ -6,6 +6,7 @@ declare class ReactionMenu {
 	public actions: Array<ReactionMenuAction>;
 	public static menus: Map<string, ReactionMenu>;
 	public menus: Map<string, ReactionMenu>;
+	public reactionResults: Array<boolean>;
 
 	public constructor(message: Discord.Message, client: Discord.Client, actions: Array<ReactionMenuAction>, autoReact?: boolean);
 
@@ -21,9 +22,9 @@ declare class ReactionMenu {
 	 */
 	private _removeEach(): Promise<0 | 1>;
 	/**
-	 * Returns the results of the reacts. 0 on fail and 1 on success.
+	 * Returns the results of the reacts.
 	 */
-	public react(): Promise<Array<0 | 1>>;
+	public react(): Promise<Array<boolean>>;
 	/**
 	 * Remove the menu from storage, and optionally delete its reactions.
 	 */

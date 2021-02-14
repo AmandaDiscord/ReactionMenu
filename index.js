@@ -16,6 +16,8 @@ class ReactionMenu {
 		this.message = message;
 		this.actions = actions;
 		this.client = client;
+		/** @type {Array<boolean>} */
+		this.reactionResults = [];
 
 		reactionMenus.set(this.message.id, this);
 		if (autoReact) this.react();
@@ -59,10 +61,10 @@ class ReactionMenu {
 
 		switch (action.ignore) {
 		case "that":
-			menu.actions.find(a => encodeURIComponent(a.emoji) === resolveEmoji(emoji)).actionType = "none";
+			menu.actions.find(a => resolveEmoji(a.emoji) === resolveEmoji(emoji)).actionType = "none";
 			break;
 		case "thatTotal":
-			menu.actions = menu.actions.filter(a => encodeURIComponent(a.emoji) !== resolveEmoji(emoji));
+			menu.actions = menu.actions.filter(a => resolveEmoji(a.emoji) !== resolveEmoji(emoji));
 			break;
 		case "all":
 			menu.actions.forEach(a => a.actionType = "none");
@@ -106,21 +108,52 @@ class ReactionMenu {
 	}
 
 	/**
-	 * Returns the results of the reacts. 0 on fail and 1 on success.
-	 * @returns {Promise<Array<0 | 1>>}
+	 * Returns the results of the reacts.
+	 * @returns {Promise<Array<boolean>>}
 	 */
 	async react() {
-		/** @type {Array<0 | 1>} */
-		const val = [];
-		for (const a of this.actions) {
+		// hold references since the this key word is quirky.
+		const message = this.message;
+		const rResults = this.reactionResults;
+
+		/**
+		 * @param {string} emoji
+		 * @param {number} index
+		 */
+		async function doReact(emoji, index, attempts = 0) {
+			if (attempts === 2) return setResult(index, false);
+			let timer;
+
+			const tprom = new Promise((res, rej) => {
+				timer = setTimeout(() => rej(new Error("Timed out.")), 5000);
+			});
+
 			try {
-				await this.message.react(a.emoji);
-				val.push(1);
+				await Promise.race([
+					tprom,
+					message.react(emoji)
+				]);
+				clearTimeout(timer);
+				setResult(index, true);
 			} catch {
-				await this.message.react(a.emoji).then(() => val.push(1)).catch(() => val.push(0));
+				await doReact(emoji, index, attempts++);
 			}
 		}
-		return val;
+
+		/**
+		 * @param {number} index
+		 * @param {boolean} result
+		 */
+		function setResult(index, result) {
+			typeof rResults[index] === "boolean" ? rResults.splice(index, 1, result) : rResults.push(result)
+		}
+
+		for (let index = 0; index < this.actions.length; index++) {
+			if (rResults[index] === true) continue;
+			const a = this.actions[index];
+			await doReact(a.emoji, index);
+		}
+		return rResults;
 	}
 
 	/**
