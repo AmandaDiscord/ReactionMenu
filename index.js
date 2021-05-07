@@ -9,13 +9,12 @@ const reactionMenus = new Map();
 class ReactionMenu {
 	/**
 	 * @param {Discord.Message} message
-	 * @param {Discord.Client} client
 	 * @param {ReactionMenuAction[]} actions
 	 */
-	constructor(message, client, actions, autoReact = true) {
+	constructor(message, actions, autoReact = true) {
 		this.message = message;
 		this.actions = actions;
-		this.client = client;
+		this.client = message.client;
 		/** @type {Array<boolean>} */
 		this.reactionResults = [];
 
@@ -26,45 +25,43 @@ class ReactionMenu {
 	static get menus() {
 		return reactionMenus;
 	}
+
 	get menus() {
 		return reactionMenus;
 	}
 
 	/**
-	 * @param {ReactionData} data
-	 * @param {Discord.Channel | Discord.PartialChannel} channel
+	 * @param {import("thunderstorm").MessageReaction} reaction
 	 * @param {Discord.User} user
-	 * @param {Discord.Client} client
 	 */
-	static handler(data, channel, user, client) {
+	static handler(reaction, user) {
 		// Set up vars
-		const emoji = data.emoji;
-		const menu = reactionMenus.get(data.message_id);
+		const menu = reactionMenus.get(reaction.message.id);
 		// Quick conditions
-		if (user.id === client.user.id) return;
+		if (user.id === reaction.message.client.user.id) return;
 		if (!menu) return;
 		// We now have a menu
 		const msg = menu.message;
-		const action = menu.actions.find(a => resolveEmoji(a.emoji) === resolveEmoji(emoji));
+		const action = menu.actions.find(a => resolveEmoji(a.emoji) === reaction.emoji.identifier);
 		// Make sure the emoji is actually an action
 		if (!action) return;
 		// Make sure the user is allowed
 		if ((action.allowedUsers && !action.allowedUsers.includes(user.id)) || (action.deniedUsers && action.deniedUsers.includes(user.id))) {
-			removeReaction(client, channel.id, data.message_id, data.emoji, user.id);
+			reaction.remove(user.id);
 			return;
 		}
 
 		// Actually do stuff
 		if (action.actionType === "js") {
-			action.actionData(msg, emoji, user);
+			action.actionData(msg, reaction.emoji, user);
 		}
 
 		switch (action.ignore) {
 		case "that":
-			menu.actions.find(a => resolveEmoji(a.emoji) === resolveEmoji(emoji)).actionType = "none";
+			menu.actions.find(a => resolveEmoji(a.emoji) === reaction.emoji.identifier).actionType = "none";
 			break;
 		case "thatTotal":
-			menu.actions = menu.actions.filter(a => resolveEmoji(a.emoji) !== resolveEmoji(emoji));
+			menu.actions = menu.actions.filter(a => resolveEmoji(a.emoji) !== reaction.emoji.identifier);
 			break;
 		case "all":
 			menu.actions.forEach(a => a.actionType = "none");
@@ -79,13 +76,13 @@ class ReactionMenu {
 
 		switch (action.remove) {
 		case "user":
-			removeReaction(client, channel.id, data.message_id, data.emoji, user.id);
+			removeReaction(msg.client, msg.channel.id, msg.id, reaction.emoji.identifier, user.id);
 			break;
 		case "bot":
-			removeReaction(client, channel.id, data.message_id, data.emoji, client.user.id);
+			removeReaction(msg.client, msg.channel.id, msg.id, reaction.emoji.identifier, msg.client.user.id);
 			break;
 		case "all":
-			client._snow.channel.deleteAllReactions(channel.id, data.message_id);
+			msg.clearReactions();
 			break;
 		case "message":
 			menu.destroy(true);
@@ -98,13 +95,11 @@ class ReactionMenu {
 	}
 
 	/**
-	 * @param {ReactionData} data
-	 * @param {Discord.Channel | Discord.PartialChannel} channel
+	 * @param {import("thunderstorm").MessageReaction} reaction
 	 * @param {Discord.User} user
-	 * @param {Discord.Client} client
 	 */
-	handler(data, channel, user, client) {
-		return ReactionMenu.handler(data, channel, user, client);
+	handler(reaction, user) {
+		return ReactionMenu.handler(reaction, user);
 	}
 
 	/**
@@ -112,59 +107,26 @@ class ReactionMenu {
 	 * @returns {Promise<Array<boolean>>}
 	 */
 	async react() {
-		// hold references since the this key word is quirky.
-		const message = this.message;
-		const rResults = this.reactionResults;
-
-		/**
-		 * @param {string} emoji
-		 * @param {number} index
-		 */
-		async function doReact(emoji, index, attempts = 0) {
-			if (attempts === 2) return setResult(index, false);
-			let timer;
-
-			const tprom = new Promise((res, rej) => {
-				timer = setTimeout(() => rej(new Error("Timed out.")), 5000);
-			});
-
+		const values = [];
+		for (const action of this.actions) {
 			try {
-				await Promise.race([
-					tprom,
-					message.react(emoji)
-				]);
-				clearTimeout(timer);
-				setResult(index, true);
+				await this.message.react(action.emoji);
+				values.push(true);
 			} catch {
-				await doReact(emoji, index, attempts++);
+				values.push(false);
 			}
 		}
-
-		/**
-		 * @param {number} index
-		 * @param {boolean} result
-		 */
-		function setResult(index, result) {
-			typeof rResults[index] === "boolean" ? rResults.splice(index, 1, result) : rResults.push(result)
-		}
-
-		for (let index = 0; index < this.actions.length; index++) {
-			if (rResults[index] === true) continue;
-			const a = this.actions[index];
-			await doReact(a.emoji, index);
-		}
-		return rResults;
+		return values;
 	}
 
 	/**
 	 * Remove the menu from storage, and optionally delete its reactions.
 	 * @param {boolean} [remove]
-	 * @param {"text" | "dm"} [channelType]
 	 */
-	destroy(remove, channelType = "text") {
+	destroy(remove) {
 		reactionMenus.delete(this.message.id);
 		if (remove) {
-			if (channelType === "dm") this._removeEach();
+			if (this.message.channel.type === "dm") this._removeEach();
 			else this._removeAll();
 		}
 	}
@@ -172,13 +134,12 @@ class ReactionMenu {
 	/**
 	 * Call the endpoint to remove all reactions. Fall back to removing individually if this fails.
 	 * @private
-	 * @returns {Promise<0 | 1>}
 	 */
 	async _removeAll() {
 		/** @type {0 | 1} */
 		let value = 1
 		try {
-			await this.client._snow.channel.deleteAllReactions(this.message.channel.id, this.message.id);
+			await this.message.clearReactions();
 		} catch {
 			try {
 				value = await this._removeEach();
@@ -198,7 +159,7 @@ class ReactionMenu {
 			if (a.allowedUsers && Array.isArray(a.allowedUsers)) {
 				for (const user of a.allowedUsers) {
 					try {
-						await removeReaction(this.client, this.message.channel.id, this.message.id, a.emoji, user);
+						await this.client._snow.channel.deleteReaction(this.message.channel.id, this.message.id, a.emoji, user);
 					} catch (e) {
 						return 0;
 					}
@@ -248,7 +209,7 @@ function resolveEmoji(emoji) {
 /**
  * @callback ReactionMenuActionCallback
  * @param {Discord.Message} message
- * @param {{ id: string, name: string }} emoji
+ * @param {Discord.ReactionEmoji} emoji
  * @param {Discord.User} user
  */
 
@@ -261,12 +222,4 @@ function resolveEmoji(emoji) {
  * @property {"user" | "bot" | "all" | "message"} [remove]
  * @property {"js" | "none"} [actionType]
  * @property {ReactionMenuActionCallback} [actionData]
- */
-
-/**
- * @typedef {Object} ReactionData
- * @property {string} user_id
- * @property {string} channel_id
- * @property {string} message_id
- * @property {{ id: string, name: string }} emoji
  */

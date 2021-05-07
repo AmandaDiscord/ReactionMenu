@@ -8,10 +8,10 @@ declare class ReactionMenu {
 	public menus: Map<string, ReactionMenu>;
 	public reactionResults: Array<boolean>;
 
-	public constructor(message: Discord.Message, client: Discord.Client, actions: Array<ReactionMenuAction>, autoReact?: boolean);
+	public constructor(message: Discord.Message, actions: Array<ReactionMenuAction>, autoReact?: boolean);
 
-	public static handler(data: ReactionData, channel: Discord.Channel | Discord.PartialChannel, user: Discord.User, client: Discord.Client): void;
-	public handler(data: ReactionData, channel: Discord.Channel | Discord.PartialChannel, user: Discord.User, client: Discord.Client): void;
+	public static handler(reaction: Discord.MessageReaction, user: Discord.User): void;
+	public handler(data: Discord.MessageReaction, user: Discord.User): void;
 
 	/**
 	 * Call the endpoint to remove all reactions. Fall back to removing individually if this fails.
@@ -28,7 +28,7 @@ declare class ReactionMenu {
 	/**
 	 * Remove the menu from storage, and optionally delete its reactions.
 	 */
-	public destroy(remove?: boolean, channelType?: "text" | "dm"): void;
+	public destroy(remove?: boolean): void;
 }
 export = ReactionMenu;
 
@@ -39,17 +39,7 @@ interface ReactionMenuAction {
 	ignore?: IgnoreType;
 	remove?: RemoveType;
 	actionType?: "js";
-	actionData?(message?: Discord.Message, emoji?: { id: string; name: string; }, user?: Discord.User): any;
-}
-
-type ReactionData = {
-	user_id: string;
-	channel_id: string;
-	message_id: string;
-	emoji: {
-		id: string;
-		name: string;
-	};
+	actionData?(message?: Discord.Message, emoji?: Discord.ReactionEmoji, user?: Discord.User): any;
 }
 
 declare type IgnoreType = "that" | "thatTotal" | "all" | "total";
