@@ -42,7 +42,7 @@ class ReactionMenu {
 		if (!menu) return;
 		// We now have a menu
 		const msg = menu.message;
-		const action = menu.actions.find(a => resolveEmoji(a.emoji) === reaction.emoji.identifier);
+		const action = menu.actions.find(a => encodeURIComponent(resolveEmoji(a.emoji)) === reaction.emoji.identifier);
 		// Make sure the emoji is actually an action
 		if (!action) return;
 		// Make sure the user is allowed
@@ -58,10 +58,10 @@ class ReactionMenu {
 
 		switch (action.ignore) {
 		case "that":
-			menu.actions.find(a => resolveEmoji(a.emoji) === reaction.emoji.identifier).actionType = "none";
+			menu.actions.find(a => encodeURIComponent(resolveEmoji(a.emoji)) === reaction.emoji.identifier).actionType = "none";
 			break;
 		case "thatTotal":
-			menu.actions = menu.actions.filter(a => resolveEmoji(a.emoji) !== reaction.emoji.identifier);
+			menu.actions = menu.actions.filter(a => encodeURIComponent(resolveEmoji(a.emoji)) !== reaction.emoji.identifier);
 			break;
 		case "all":
 			menu.actions.forEach(a => a.actionType = "none");
@@ -79,7 +79,7 @@ class ReactionMenu {
 			removeReaction(msg.client, msg.channel.id, msg.id, reaction.emoji.identifier, user.id);
 			break;
 		case "bot":
-			removeReaction(msg.client, msg.channel.id, msg.id, reaction.emoji.identifier, msg.client.user.id);
+			removeReaction(msg.client, msg.channel.id, msg.id, reaction.emoji.identifier);
 			break;
 		case "all":
 			msg.clearReactions();
@@ -157,7 +157,7 @@ class ReactionMenu {
 	async _removeEach() {
 		for(const a of this.actions) {
 			try {
-				await this.client._snow.channel.deleteReactionSelf(this.message.channel.id, this.message.id, resolveEmoji(a.emoji));
+				await removeReaction(this.client, this.message.channel.id, this.message.id, a.emoji)
 			} catch (e) {
 				return 0;
 			}
@@ -178,8 +178,8 @@ module.exports = ReactionMenu;
 function removeReaction(client, channelID, messageID, emoji, userID) {
 	if (!userID) userID = "@me";
 	const reaction = resolveEmoji(emoji);
-	if (userID === client.user.id || userID === "@me") return client._snow.channel.deleteReactionSelf(channelID, messageID, reaction);
-	return client._snow.channel.deleteReaction(channelID, messageID, reaction, userID);
+	if (userID === client.user.id || userID === "@me") return client._snow.channel.deleteReactionSelf(channelID, messageID, encodeURIComponent(reaction));
+	return client._snow.channel.deleteReaction(channelID, messageID, encodeURIComponent(reaction), userID);
 }
 
 /**
@@ -187,16 +187,13 @@ function removeReaction(client, channelID, messageID, emoji, userID) {
  */
 function resolveEmoji(emoji) {
 	let e;
-	if (typeof emoji === "string") {
-		if (emoji.includes(":")) return emoji;
-		else return encodeURIComponent(emoji);
-	}
+	if (typeof emoji === "string") return emoji;
 	if (emoji.id) {
 		// Custom emoji, has name and ID
 		e = `${emoji.name}:${emoji.id}`;
 	} else {
 		// Default emoji, has name only
-		e = encodeURIComponent(emoji.name);
+		e = emoji.name;
 	}
 	return e;
 }
