@@ -85,7 +85,7 @@ class ReactionMenu {
 			msg.clearReactions();
 			break;
 		case "message":
-			menu.destroy(true);
+			menu.destroy();
 			msg.delete();
 			break;
 		default:
@@ -110,7 +110,7 @@ class ReactionMenu {
 		const values = [];
 		for (const action of this.actions) {
 			try {
-				await this.message.react(action.emoji);
+				await this.message.react(resolveEmoji(action.emoji));
 				values.push(true);
 			} catch {
 				values.push(false);
@@ -156,14 +156,10 @@ class ReactionMenu {
 	 */
 	async _removeEach() {
 		for(const a of this.actions) {
-			if (a.allowedUsers && Array.isArray(a.allowedUsers)) {
-				for (const user of a.allowedUsers) {
-					try {
-						await this.client._snow.channel.deleteReaction(this.message.channel.id, this.message.id, a.emoji, user);
-					} catch (e) {
-						return 0;
-					}
-				}
+			try {
+				await this.client._snow.channel.deleteReactionSelf(this.message.channel.id, this.message.id, resolveEmoji(a.emoji));
+			} catch (e) {
+				return 0;
 			}
 		}
 		return 1;
@@ -177,14 +173,13 @@ module.exports = ReactionMenu;
  * @param {string} channelID
  * @param {string} messageID
  * @param {{ id: string, name: string } | string} emoji
- * @param {string} userID
+ * @param {string} [userID]
  */
 function removeReaction(client, channelID, messageID, emoji, userID) {
 	if (!userID) userID = "@me";
 	const reaction = resolveEmoji(emoji);
-	const promise = client._snow.channel.deleteReaction(channelID, messageID, reaction, userID);
-	promise.catch(() => {});
-	return promise;
+	if (userID === client.user.id || userID === "@me") return client._snow.channel.deleteReactionSelf(channelID, messageID, reaction);
+	return client._snow.channel.deleteReaction(channelID, messageID, reaction, userID);
 }
 
 /**
