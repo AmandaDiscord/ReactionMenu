@@ -42,7 +42,7 @@ class ReactionMenu {
 		if (!menu) return;
 		// We now have a menu
 		const msg = menu.message;
-		const action = menu.actions.find(a => encodeURIComponent(resolveEmoji(a.emoji)) === reaction.emoji.identifier);
+		const action = menu.actions.find(a => resolveEmoji(a.emoji) === reaction.emoji.identifier);
 		// Make sure the emoji is actually an action
 		if (!action) return;
 		// Make sure the user is allowed
@@ -58,10 +58,10 @@ class ReactionMenu {
 
 		switch (action.ignore) {
 		case "that":
-			menu.actions.find(a => encodeURIComponent(resolveEmoji(a.emoji)) === reaction.emoji.identifier).actionType = "none";
+			menu.actions.find(a => resolveEmoji(a.emoji) === reaction.emoji.identifier).actionType = "none";
 			break;
 		case "thatTotal":
-			menu.actions = menu.actions.filter(a => encodeURIComponent(resolveEmoji(a.emoji)) !== reaction.emoji.identifier);
+			menu.actions = menu.actions.filter(a => resolveEmoji(a.emoji) !== reaction.emoji.identifier);
 			break;
 		case "all":
 			menu.actions.forEach(a => a.actionType = "none");
@@ -110,7 +110,7 @@ class ReactionMenu {
 		const values = [];
 		for (const action of this.actions) {
 			try {
-				await this.message.react(resolveEmoji(action.emoji));
+				await this.message.react(action.emoji);
 				values.push(true);
 			} catch {
 				values.push(false);
@@ -178,8 +178,8 @@ module.exports = ReactionMenu;
 function removeReaction(client, channelID, messageID, emoji, userID) {
 	if (!userID) userID = "@me";
 	const reaction = resolveEmoji(emoji);
-	if (userID === client.user.id || userID === "@me") return client._snow.channel.deleteReactionSelf(channelID, messageID, encodeURIComponent(reaction));
-	return client._snow.channel.deleteReaction(channelID, messageID, encodeURIComponent(reaction), userID);
+	if (userID === client.user.id || userID === "@me") return client._snow.channel.deleteReactionSelf(channelID, messageID, reaction);
+	else return client._snow.channel.deleteReaction(channelID, messageID, reaction, userID);
 }
 
 /**
@@ -187,13 +187,16 @@ function removeReaction(client, channelID, messageID, emoji, userID) {
  */
 function resolveEmoji(emoji) {
 	let e;
-	if (typeof emoji === "string") return emoji;
+	if (typeof emoji === "string") {
+		if (emoji.includes(":") || emoji.includes("%")) return emoji; //already encoded
+		else return encodeURIComponent(emoji);
+	}
 	if (emoji.id) {
 		// Custom emoji, has name and ID
 		e = `${emoji.name}:${emoji.id}`;
 	} else {
 		// Default emoji, has name only
-		e = emoji.name;
+		e = encodeURIComponent(emoji.name);
 	}
 	return e;
 }
