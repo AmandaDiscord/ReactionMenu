@@ -5,4 +5,4 @@ Written by @cloudrac3r (A.K.A. Cadence), this module is a reaction handler for T
 This module requires AmandaDiscord/Thunderstorm.
 
 ## Note
-There is a static method handler which accepts data which is emitted from ThunderStorm but not all data is compatible. You will just need to pass your Client construct to the handler and also get the user data somehow.
+There is a static method handler which accepts data which is emitted from ThunderStorm but not all data is compatible. You will just need to get the user's data somehow.
